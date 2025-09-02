@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Jump Counter</title>
+  <style>
+    :root{
+      --bg: #101018;
+      --grid:#17172a;
+      --title:#ffd800; /* bright yellow */
+      --btn:#e11d2e;  /* red */
+      --btn-dark:#a50f1d;
+      --ink:#111;
+      --accent:#39d353;
+      --pixel: 10px; /* base pixel size for the man */
+    }
+
+    /* Global pixel-art vibe */
+    html, body { height: 100%; }
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Noto Sans", Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background:
+        repeating-linear-gradient(0deg, var(--grid) 0 2px, transparent 2px 40px),
+        repeating-linear-gradient(90deg, var(--grid) 0 2px, var(--bg) 2px 40px),
+        var(--bg);
+      color:#e7e7f7;
+      image-rendering: pixelated;
+      display:grid;
+      grid-template-rows: auto 1fr auto auto; /* title, center, man, counter */
+      min-height:100vh;
+    }
+
+    /* Header */
+    header{
+      text-align:center;
+      padding:20px 16px 12px;
+    }
+    .title{
+      display:inline-block;
+      font-weight:900;
+      font-size: clamp(28px, 5vw, 56px);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--title);
+      /* chunky pixelated border using layered shadows */
+      text-shadow:
+        2px 0 0 #000, -2px 0 0 #000, 0 2px 0 #000, 0 -2px 0 #000,
+        4px 0 0 #000, -4px 0 0 #000, 0 4px 0 #000, 0 -4px 0 #000;
+    }
+
+    /* Center stage */
+    .stage{
+      display:grid;
+      place-items:center;
+      padding: 16px;
+    }
+
+    /* Pixelated circular button */
+    .jump-btn{
+      --size: 160px;
+      width: var(--size);
+      height: var(--size);
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 30%, #ff4d5a 0 35%, var(--btn) 65% 100%);
+      border: 0;
+      position: relative;
+      cursor: pointer;
+      color: #111;
+      font-weight: 900;
+      font-size: 28px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      image-rendering: pixelated;
+      /* pixel outline effect */
+      box-shadow:
+        0 0 0 4px #000,
+        0 0 0 8px #fff2,
+        0 12px 0 0 var(--btn-dark),
+        0 16px 0 0 #000;
+      transition: transform .06s ease-out, box-shadow .06s ease-out;
+    }
+    .jump-btn:active{
+      transform: translateY(8px);
+      box-shadow:
+        0 0 0 4px #000,
+        0 0 0 8px #fff2,
+        0 6px 0 0 var(--btn-dark),
+        0 8px 0 0 #000;
+    }
+    .jump-btn:before{
+      content:"JUMP";
+      position:absolute; inset:0;
+      display:grid; place-items:center;
+      text-shadow: -2px 0 #000, 2px 0 #000, 0 -2px #000, 0 2px #000;
+    }
+    .hint{ opacity:.7; font-size:12px; margin-top:10px; }
+
+    /* Ground / character lane */
+    .ground{
+      position: relative;
+      height: 160px;
+      display:grid;
+      place-items:center;
+    }
+    .ground::after{
+      content: "";
+      position:absolute; left:0; right:0; bottom:0;
+      height: 10px;
+      background: linear-gradient(0deg, #0a0a12 0, #1a1a2a 100%);
+      box-shadow: 0 -2px 0 #000 inset, 0 -6px 0 #000 inset;
+    }
+
+    /* Pixel Man (built from square blocks) */
+    .man{
+      position: absolute;
+      bottom: 10px; /* stand on the ground line */
+      left: 50%; transform: translateX(-50%);
+      width: calc(var(--pixel) * 8);
+      height: calc(var(--pixel) * 12);
+      image-rendering: pixelated;
+      filter: drop-shadow(0 6px 0 #000) drop-shadow(0 0 0 #000);
+    }
+
+    /* Each body part is a pixelated rectangle */
+    .part{ position:absolute; background:#ffcc66; box-shadow: 0 0 0 2px #000 inset; }
+    .shirt{ background:#3ab0ff; }
+    .pants{ background:#6f42c1; }
+    .shoe{ background:#222; }
+    .hair{ background:#3a2a1a; }
+    .eye{ background:#000; box-shadow:none; }
+
+    /* Layout of parts (grid-ish) */
+    /* Head */
+    .head{ width: calc(var(--pixel)*5); height: calc(var(--pixel)*5); left: calc(var(--pixel)*1.5); top: 0; }
+    .hair{ width: 100%; height: calc(var(--pixel)*1.2); left:0; top:0; }
+    .eye{ width: calc(var(--pixel)*.6); height: calc(var(--pixel)*.6); top: calc(var(--pixel)*2.2); border-radius:1px; }
+    .eye.left{ left: calc(var(--pixel)*2.2); }
+    .eye.right{ left: calc(var(--pixel)*3.4); }
+
+    /* Body */
+    .torso{ width: calc(var(--pixel)*6); height: calc(var(--pixel)*5); left: calc(var(--pixel)); top: calc(var(--pixel)*5); }
+    .torso.shirt{ box-shadow: 0 0 0 2px #000 inset, 0 -6px 0 #2a90d8 inset; }
+
+    /* Arms */
+    .arm{
+      width: calc(var(--pixel)*2);
+      height: calc(var(--pixel)*4);
+      top: calc(var(--pixel)*5.3);
+      transform-origin: top center;
+    }
+    .arm.left{ left: 0; }
+    .arm.right{ right: 0; }
+
+    /* Legs */
+    .leg{
+      width: calc(var(--pixel)*2.4);
+      height: calc(var(--pixel)*5);
+      top: calc(var(--pixel)*10);
+      transform-origin: top center;
+    }
+    .leg.left{ left: calc(var(--pixel)*1.2); }
+    .leg.right{ right: calc(var(--pixel)*1.2); }
+
+    .shoe{ width: 100%; height: calc(var(--pixel)*1.2); bottom: -2px; position:absolute; left:0; }
+
+    /* Jump animation */
+    @keyframes hop {
+      0%   { transform: translate(-50%, 0); }
+      25%  { transform: translate(-50%, -32px); }
+      50%  { transform: translate(-50%, -38px); }
+      75%  { transform: translate(-50%, -16px); }
+      100% { transform: translate(-50%, 0); }
+    }
+    @keyframes arms {
+      0% { transform: rotate(0deg); }
+      30% { transform: rotate(-20deg); }
+      70% { transform: rotate(14deg); }
+      100% { transform: rotate(0deg); }
+    }
+    @keyframes legs {
+      0% { transform: rotate(0deg); }
+      40% { transform: rotate(18deg); }
+      70% { transform: rotate(-10deg); }
+      100% { transform: rotate(0deg); }
+    }
+
+    .man.jump { animation: hop .6s cubic-bezier(.2,.9,.27,1) both; }
+    .arm.jump { animation: arms .6s ease-in-out both; }
+    .leg.jump { animation: legs .6s ease-in-out both; }
+
+    /* Counter */
+    .counter{
+      text-align:center;
+      font-weight: 800;
+      letter-spacing: 1px;
+      padding: 10px 16px 18px;
+      background: linear-gradient(180deg, #0c0c16 0, #090912 100%);
+      border-top: 4px solid #000;
+      box-shadow: 0 -8px 0 #000;
+    }
+    .counter .label{ opacity:.8; font-size:12px; display:block; }
+    .counter .value{
+      font-size: 24px;
+      color: var(--accent);
+      text-shadow: 0 2px 0 #000;
+    }
+
+    /* Make it responsive */
+    @media (max-width: 420px){
+      .jump-btn{ --size: 130px; font-size: 22px; }
+      :root{ --pixel: 9px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1 class="title">Jump Counter</h1>
+  </header>
+
+  <main class="stage" aria-live="polite">
+    <button class="jump-btn" id="jumpBtn" aria-label="Make the man jump"></button>
+    <div class="hint">Click, tap, or press Space/Enter</div>
+  </main>
+
+  <section class="ground">
+    <!-- Pixel Man -->
+    <div class="man" id="man" aria-hidden="true">
+      <div class="part head">
+        <div class="part hair"></div>
+        <div class="part eye left"></div>
+        <div class="part eye right"></div>
+      </div>
+      <div class="part torso shirt"></div>
+      <div class="part arm left"></div>
+      <div class="part arm right"></div>
+      <div class="part leg left pants"><div class="shoe"></div></div>
+      <div class="part leg right pants"><div class="shoe"></div></div>
+    </div>
+  </section>
+
+  <footer class="counter">
+    <span class="label">Total Jumps</span>
+    <span class="value" id="jumpCount">0</span>
+  </footer>
+
+  <script>
+    (function(){
+      const btn = document.getElementById('jumpBtn');
+      const man = document.getElementById('man');
+      const countEl = document.getElementById('jumpCount');
+
+      let jumps = 0;
+
+      function doJump(){
+        // increment
+        jumps += 1;
+        countEl.textContent = jumps.toLocaleString();
+
+        // restart animations by toggling classes
+        man.classList.remove('jump');
+        for (const limb of man.querySelectorAll('.arm, .leg')) limb.classList.remove('jump');
+        // force reflow to restart CSS animations
+        // eslint-disable-next-line no-unused-expressions
+        void man.offsetWidth;
+        man.classList.add('jump');
+        for (const limb of man.querySelectorAll('.arm, .leg')) limb.classList.add('jump');
+      }
+
+      // Button
+      btn.addEventListener('click', doJump);
+
+      // Keyboard support
+      function handleKey(e){
+        if (e.code === 'Space' || e.code === 'Enter'){ e.preventDefault(); doJump(); }
+      }
+      document.addEventListener('keydown', handleKey);
+
+      // Touch-enter hint accessibility
+      btn.addEventListener('keydown', handleKey);
+
+      // Position arms/legs precisely after DOM paints
+      function layoutParts(){
+        const px = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--pixel')) || 10;
+        const torso = man.querySelector('.torso');
+        const arms = man.querySelectorAll('.arm');
+        const legs = man.querySelectorAll('.leg');
+        if(!torso){
+          // If styles load before HTML, add torso now (fallback)
+          const t = document.createElement('div');
+          t.className = 'part torso shirt';
+          man.appendChild(t);
+        }
+        // Ensure shoes sit at bottom of legs
+        legs.forEach(l=>{
+          if(!l.querySelector('.shoe')){
+            const s = document.createElement('div');
+            s.className = 'shoe';
+            l.appendChild(s);
+          }
+        });
+      }
+      layoutParts();
+    })();
+  </script>
+</body>
+</html>
